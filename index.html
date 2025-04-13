@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARI Prototype</title>
+</head>
+<body>
+    <h1>ARI Prototype - Test</h1>
+    <div>
+        <textarea id="userInput" placeholder="Type your query here..."></textarea>
+        <button onclick="sendRequest()">Submit</button>
+    </div>
+    <div id="responseArea">
+        <p>Response:</p>
+        <pre id="responseText"></pre>
+    </div>
+
+    <script>
+        async function sendRequest() {
+            const userInput = document.getElementById("userInput").value;
+            if (!userInput) {
+                alert("Please enter some text.");
+                return;
+            }
+
+            try {
+                const response = await fetch("https://ariprototype.onrender.com/interact", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ text: userInput }),
+                });
+
+                const data = await response.json();
+                document.getElementById("responseText").textContent = data.reply;
+            } catch (error) {
+                document.getElementById("responseText").textContent = "Error: " + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
