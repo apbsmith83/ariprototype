@@ -1,18 +1,18 @@
-// server.js
-
 const express = require('express');
-const dotenv = require('dotenv');
-const { Configuration, OpenAIApi } = require('openai');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+require('dotenv').config();
 
-dotenv.config();  // Load environment variables from .env file
+const { OpenAIApi, Configuration } = require('openai');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,  // Get the key from the .env file
-});
-const openai = new OpenAIApi(configuration);
+const openai = new OpenAIApi(
+  new Configuration({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+);
 
 app.use(express.json());
 
