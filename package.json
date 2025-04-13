@@ -1,0 +1,17 @@
+{
+  "name": "ariprototype",
+  "version": "1.0.0",
+  "description": "A conversational AI app for relational engagement.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",  // for local development, using nodemon
+    "build": "npm run clean && npm run compile"  // if you have any build tasks
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "openai": "^3.0.0",
+    "dotenv": "^10.0.0",
+    "nodemon": "^2.0.0"  // optional, for local development
+  }
+}
