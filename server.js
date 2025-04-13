@@ -3,16 +3,15 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 require('dotenv').config();
 
-const { OpenAIApi, Configuration } = require('openai');
+const { OpenAIApi } = require('openai');  // Import OpenAIApi directly
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-const openai = new OpenAIApi(
-  new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-);
+// Directly instantiate OpenAIApi with API key
+const openai = new OpenAIApi({
+  apiKey: process.env.OPENAI_API_KEY, // Get the key from the .env file
+});
 
 app.use(express.json());
 
