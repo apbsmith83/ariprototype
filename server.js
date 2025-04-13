@@ -6,6 +6,8 @@ require('dotenv').config();
 const { OpenAI } = require('openai');  // Corrected import based on new API
 
 const app = express();
+app.use(cors()); // Add this line
+
 const port = process.env.PORT || 3000;
 
 // Initialize OpenAI client with the API key
