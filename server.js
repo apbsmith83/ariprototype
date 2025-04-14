@@ -1,38 +1,59 @@
-require('dotenv').config(); // This will ensure we can use environment variables
-
 const express = require('express');
-const { OpenAI } = require('openai'); // Import OpenAI SDK
+const bodyParser = require('body-parser');
+const axios = require('axios');
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 10000;
 
-app.use(express.json());
+// Enable CORS for all origins (for testing)
+app.use(cors());
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // This will use the API key from your environment
+// Use bodyParser to parse incoming JSON requests
+app.use(bodyParser.json());
+
+// Logging for incoming requests (to verify what data is being sent)
+app.use((req, res, next) => {
+  console.log(`Received ${req.method} request to ${req.url}`);
+  console.log('Request body:', req.body);
+  next();
 });
 
-// Endpoint to handle requests
+// POST /interact endpoint to handle the user input and interact with OpenAI API
 app.post('/interact', async (req, res) => {
-  const { message } = req.body;
-
-  if (!message) {
-    return res.status(400).send({ error: 'Message is required.' });
-  }
-
+  console.log('POST request received at /interact');
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4', // You can change the model if needed
-      messages: [{ role: 'user', content: message }],
-    });
+    const userInput = req.body.input;
+    if (!userInput) {
+      return res.status(400).json({ error: 'No input provided' });
+    }
 
-    res.json(completion.choices[0].message);
+    // Make the API request to OpenAI
+    const response = await axios.post(
+      'https://api.openai.com/v1/completions',
+      {
+        model: 'text-davinci-003', // You may use your model here
+        prompt: userInput,
+        max_tokens: 100,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    console.log('OpenAI API response:', response.data);
+    res.json(response.data); // Send the OpenAI API response back to the client
   } catch (error) {
-    console.error('Error generating response:', error);
-    res.status(500).send({ error: 'Error generating response from AI.' });
+    console.error('Error interacting with OpenAI API:', error);
+    res.status(500).json({ error: 'Failed to interact with OpenAI API' });
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+// Start the server
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
