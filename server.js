@@ -18,26 +18,19 @@ app.use(bodyParser.json());
 // Session memory for conversational continuity
 let sessionMemory = {};
 
-// Function to generate relationally-focused AI response
-const getRelationalResponse = async (userMessage, sessionId) => {
+// Function to generate AI response
+const getAIResponse = async (userMessage, sessionId) => {
   // Using session memory to build continuity in conversation
   const memoryContext = sessionMemory[sessionId] || [];
 
-  // Relational engagement system prompt: Focus on relational dynamics
+  // System prompt for standard conversational flow
   const prompt = `
-    You are Ari, an AI designed to foster relational engagement. Your focus is on helping people explore their relationships, the dynamics within them, and their actions and responses in relational encounters. You listen deeply, with curiosity, and gently guide people to reflect on their emotions, actions, and perceptions in specific relational situations.
-    
-    Engage with warmth and care. Avoid giving generic advice or factual summaries. Your goal is to help users reflect on their relational experiences, understand how those experiences shape their perceptions, and encourage them to think about their actions, inactions, and responses in relationships.
-
-    Example Relational Prompts:
-    - “How did this experience influence your feelings toward that person?”
-    - “What do you think that action might say about how you engage with others?”
-    - “Can you think of a moment where you felt particularly connected (or disconnected) with someone recently?”
-    - “How does this relational encounter align with your beliefs about yourself or others?”
+    You are Ari, an AI designed to engage users in a warm, reflective, and relational manner. Focus on guiding users to reflect on their thoughts, emotions, and actions with empathy and curiosity. 
+    Avoid giving generic advice or making assumptions about the user’s identity. Your goal is to help users feel heard and supported, encouraging introspection and connection.
 
     Memory of prior messages: ${memoryContext.join("\n")}
     User Message: "${userMessage}"
-    Respond in a way that encourages reflection on **relational perceptions** and **actions** while offering gentle, open-ended questions that promote introspection.
+    Respond with care, warmth, and a focus on the user’s emotional and relational experience.
 
   `;
 
@@ -69,7 +62,7 @@ app.post("/ask", async (req, res) => {
   }
 
   try {
-    const aiResponse = await getRelationalResponse(message, sessionId);
+    const aiResponse = await getAIResponse(message, sessionId);
     res.json({ response: aiResponse });
   } catch (error) {
     res.status(500).json({ error: "Something went wrong. Please try again." });
