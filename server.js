@@ -1,48 +1,45 @@
-// Import required modules
-const express = require("express");
-const { Configuration, OpenAIApi } = require("openai");
-const bodyParser = require("body-parser");
-require("dotenv").config(); // Make sure this line is present to load .env variables
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const { Configuration, OpenAIApi } = require('openai');
 
-// Initialize the Express app
 const app = express();
-const port = process.env.PORT || 10000;
 
-// Middleware to parse incoming JSON
-app.use(bodyParser.json());
+// Middleware for CORS (to allow external requests)
+app.use(cors()); // Allow all origins to access this server
+app.use(bodyParser.json()); // Parse incoming JSON requests
 
-// Set up OpenAI API connection using the key from environment variables
+// OpenAI API Setup
 const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY, // This will pull from your Render environment variable
+  apiKey: process.env.OPENAI_API_KEY, // Make sure you set your OpenAI API Key in the environment variables
 });
 const openai = new OpenAIApi(configuration);
 
-// Define your API endpoint
-app.post("/interact", async (req, res) => {
-  const { input } = req.body; // Expecting a JSON body with an 'input' field
-
+// Route to handle POST requests at /interact
+app.post('/interact', async (req, res) => {
   try {
-    // Interact with OpenAI API
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4", // You can switch this to the model you're using
-      messages: [{ role: "user", content: input }],
+    const prompt = req.body.message; // Get the 'message' sent in the request body
+    if (!prompt) {
+      return res.status(400).json({ error: 'No message provided' });
+    }
+
+    // Call the OpenAI API to generate a response
+    const completion = await openai.createCompletion({
+      model: 'text-davinci-003',
+      prompt: prompt,
+      max_tokens: 150,
     });
 
-    // Send back the response from OpenAI
-    res.json({
-      message: completion.data.choices[0].message.content,
-    });
+    // Send the response back
+    res.json({ response: completion.data.choices[0].text });
   } catch (error) {
-    // Handle errors
-    console.error("Error interacting with OpenAI API:", error);
-    res.status(500).json({
-      error: "Failed to interact with OpenAI API",
-      details: error.message,
-    });
+    console.error('Error interacting with OpenAI:', error);
+    res.status(500).json({ error: 'Failed to interact with OpenAI API' });
   }
 });
 
-// Start the server
+// Set up the server to listen on a port
+const port = process.env.PORT || 10000; // Default to 10000 or use Render's environment port
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
