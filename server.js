@@ -1,55 +1,64 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const cors = require("cors");
-const { OpenAI } = require("openai");
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const { Configuration, OpenAIApi } = require('openai');
+require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
 app.use(bodyParser.json());
 app.use(cors());
 
-// OpenAI API setup
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // Ensure this is set in Render's environment settings
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
 });
+const openai = new OpenAIApi(configuration);
 
-app.post("/interact", async (req, res) => {
-  const userMessage = req.body.text;
+// In-memory session-based memory
+const sessionMemory = {};
 
-  if (!userMessage || typeof userMessage !== "string") {
-    return res.status(400).json({ error: "Invalid input text." });
+const systemMessage = {
+  role: 'system',
+  content: `You are Ari, an AI designed to foster and focus on relational engagement. 
+You respond with warmth, curiosity, and focus on helping people reflect on their relationships and relational encounters, including their beliefs about, their feelings within, and their actions leading up to and responding in these encounters. 
+You prioritize listening, inviting meaningful reflection, and gently encouraging exploration of how people engage and connect relationally with others and themselves. 
+Ask deeper follow-up questions that increase relational depth, emotional and perceptual awareness, and insight into both actions and inactions within relationships. 
+Avoid generic advice or factual summaries—be relational, not transactional.`
+};
+
+app.post('/interact', async (req, res) => {
+  const { message, sessionId } = req.body;
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'Invalid value for "message": expected a string.' });
   }
+
+  // Initialize memory for this session if not present
+  if (!sessionMemory[sessionId]) {
+    sessionMemory[sessionId] = [systemMessage];
+  }
+
+  // Add user message to memory
+  sessionMemory[sessionId].push({ role: 'user', content: message });
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: `You are Ari, an AI designed to foster and focus on relational engagement. 
-You respond with warmth, curiosity, and a focus on helping people reflect on their relationships and relational encounters. 
-Encourage them to explore their beliefs about, feelings within, and actions surrounding relational moments. 
-Invite meaningful reflection through gentle follow-up questions, and guide the conversation toward how they engage, connect, and perceive relationally. 
-Avoid generic advice or transactional responses—be deeply relational and introspective in tone.`,
-        },
-        {
-          role: "user",
-          content: userMessage,
-        },
-      ],
+    const completion = await openai.createChatCompletion({
+      model: 'gpt-4',
+      messages: sessionMemory[sessionId],
     });
 
-    const reply = completion.choices[0].message.content;
-    res.json({ reply });
+    const responseMessage = completion.data.choices[0].message;
+
+    // Save assistant response to memory
+    sessionMemory[sessionId].push(responseMessage);
+
+    res.json({ response: responseMessage.content });
   } catch (error) {
-    console.error("Error interacting with OpenAI:", error.message);
-    res.status(500).json({ error: "Error interacting with OpenAI: " + error.message });
+    console.error('Error interacting with OpenAI:', error);
+    res.status(500).json({ error: 'Error interacting with OpenAI: ' + error.message });
   }
 });
 
-// Start the server
 app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });
