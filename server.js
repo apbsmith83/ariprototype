@@ -1,61 +1,82 @@
 const express = require("express");
-const { OpenAI } = require("openai");
-const cors = require("cors");
+const { Configuration, OpenAIApi } = require("openai");
+const bodyParser = require("body-parser");
 
 const app = express();
-app.use(express.json());
-app.use(cors()); // Allow cross-origin requests for testing purposes
+const port = 10000;
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY, // Ensure your API key is set properly
+// OpenAI API Configuration
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Simple session memory to keep track of the user's input across requests
-let conversationHistory = [];
+const openai = new OpenAIApi(configuration);
 
-app.post("/interact", async (req, res) => {
-    try {
-        const { text } = req.body;
+// Middleware
+app.use(bodyParser.json());
 
-        // Check if 'text' is present and is a string
-        if (!text || typeof text !== 'string') {
-            return res.status(400).json({ error: 'Invalid input. Text is required and should be a string.' });
-        }
+// Session memory for conversational continuity
+let sessionMemory = {};
 
-        // Append user input to the conversation history
-        conversationHistory.push({ role: "user", content: text });
+// Function to generate relationally-focused AI response
+const getRelationalResponse = async (userMessage, sessionId) => {
+  // Using session memory to build continuity in conversation
+  const memoryContext = sessionMemory[sessionId] || [];
 
-        // Relationally-focused system prompt to guide responses
-        const systemPrompt = `You are Ari, an AI designed to foster and focus on relational engagement. You respond with warmth, curiosity, and focus on helping people reflect on their relationships and relational encounters. You explore their beliefs about relationships, their feelings within relationships, and the actions they take in those encounters. Your goal is to guide introspection by asking deep, follow-up questions that encourage the user to reflect on their actions, perceptions, and relational beliefs. Avoid providing generic advice or summaries. Instead, guide the user to explore their personal relational world through empathetic dialogue.`;
+  // Relational engagement system prompt: Focus on relational dynamics
+  const prompt = `
+    You are Ari, an AI designed to foster relational engagement. Your focus is on helping people explore their relationships, the dynamics within them, and their actions and responses in relational encounters. You listen deeply, with curiosity, and gently guide people to reflect on their emotions, actions, and perceptions in specific relational situations.
+    
+    Engage with warmth and care. Avoid giving generic advice or factual summaries. Your goal is to help users reflect on their relational experiences, understand how those experiences shape their perceptions, and encourage them to think about their actions, inactions, and responses in relationships.
 
-        // Combine system prompt with conversation history
-        const messages = [
-            { role: "system", content: systemPrompt },
-            ...conversationHistory
-        ];
+    Example Relational Prompts:
+    - “How did this experience influence your feelings toward that person?”
+    - “What do you think that action might say about how you engage with others?”
+    - “Can you think of a moment where you felt particularly connected (or disconnected) with someone recently?”
+    - “How does this relational encounter align with your beliefs about yourself or others?”
 
-        const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",  // We are using GPT-3.5 for now
-            messages: messages,
-        });
+    Memory of prior messages: ${memoryContext.join("\n")}
+    User Message: "${userMessage}"
+    Respond in a way that encourages reflection on **relational perceptions** and **actions** while offering gentle, open-ended questions that promote introspection.
 
-        const reply = completion.choices[0].message.content.trim();
+  `;
 
-        // Append AI response to the conversation history for continuity
-        conversationHistory.push({ role: "assistant", content: reply });
+  try {
+    const response = await openai.createCompletion({
+      model: "text-davinci-003",  // Use GPT-3.5 model for now
+      prompt: prompt,
+      max_tokens: 300,
+      temperature: 0.9,
+    });
 
-        // Send the AI's response back to the client
-        res.json({ reply });
+    const responseText = response.data.choices[0].text.trim();
+    // Save the response to memory for future context
+    sessionMemory[sessionId] = [...memoryContext, `User: ${userMessage}`, `ARI: ${responseText}`];
+    
+    return responseText;
+  } catch (error) {
+    console.error("Error generating response:", error);
+    return "Sorry, I couldn't process that right now. Let's try again.";
+  }
+};
 
-    } catch (error) {
-        console.error("Error interacting with OpenAI:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+// API endpoint to interact with ARI
+app.post("/ask", async (req, res) => {
+  const { message, sessionId } = req.body;
+
+  if (!sessionId) {
+    return res.status(400).send({ error: "Session ID is required" });
+  }
+
+  try {
+    const aiResponse = await getRelationalResponse(message, sessionId);
+    res.json({ response: aiResponse });
+  } catch (error) {
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
 });
 
 // Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
