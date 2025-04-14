@@ -1,57 +1,55 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-require('dotenv').config();
-const { OpenAI } = require('openai');
+const express = require("express");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const { OpenAI } = require("openai");
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Middleware
+app.use(bodyParser.json());
 app.use(cors());
-app.use(express.json());
 
+// OpenAI API setup
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY, // Ensure this is set in Render's environment settings
 });
 
-// 🧠 Session memory for one user (in-memory only)
-let chatHistory = [
-  {
-    role: 'system',
-    content:
-      "You are Ari, an AI designed to foster and focus on relational engagement. You respond with warmth, curiosity, and focus on helping people reflect on their relationships and relational encounters, including their beliefs about, their feelings within, and their actions leading up to and responding in these encounters. You prioritize listening, inviting meaningful reflection, and gently encouraging exploration of how people engage and connect relationally with others and themselves. Ask follow-up questions that invite introspection. Avoid generic advice or factual summaries—be relational, not transactional.",
-  },
-];
+app.post("/interact", async (req, res) => {
+  const userMessage = req.body.text;
 
-app.post('/interact', async (req, res) => {
-  const userInput = req.body.text;
-
-  // Add user message to chat history
-  chatHistory.push({ role: 'user', content: userInput });
+  if (!userMessage || typeof userMessage !== "string") {
+    return res.status(400).json({ error: "Invalid input text." });
+  }
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: chatHistory,
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: `You are Ari, an AI designed to foster and focus on relational engagement. 
+You respond with warmth, curiosity, and a focus on helping people reflect on their relationships and relational encounters. 
+Encourage them to explore their beliefs about, feelings within, and actions surrounding relational moments. 
+Invite meaningful reflection through gentle follow-up questions, and guide the conversation toward how they engage, connect, and perceive relationally. 
+Avoid generic advice or transactional responses—be deeply relational and introspective in tone.`,
+        },
+        {
+          role: "user",
+          content: userMessage,
+        },
+      ],
     });
 
-    const aiMessage = completion.choices[0].message.content;
-
-    // Add AI response to chat history
-    chatHistory.push({ role: 'assistant', content: aiMessage });
-
-    // Keep chat history short (e.g., last 6 exchanges)
-    if (chatHistory.length > 13) {
-      chatHistory = [chatHistory[0], ...chatHistory.slice(-12)];
-    }
-
-    res.json({ reply: aiMessage });
+    const reply = completion.choices[0].message.content;
+    res.json({ reply });
   } catch (error) {
-    console.error('Error from OpenAI:', error.message);
-    res.status(500).send('Error interacting with OpenAI: ' + error.message);
+    console.error("Error interacting with OpenAI:", error.message);
+    res.status(500).json({ error: "Error interacting with OpenAI: " + error.message });
   }
 });
 
+// Start the server
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server listening on port ${port}`);
 });
