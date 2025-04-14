@@ -1,15 +1,15 @@
 const express = require("express");
-const { Configuration, OpenAIApi } = require("openai");
+const { OpenAI } = require("openai");
 const cors = require("cors");
 
 const app = express();
 app.use(express.json());
 app.use(cors()); // Allow cross-origin requests for testing purposes
 
-const configuration = new Configuration({
+// Initialize OpenAI client
+const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY, // Ensure your API key is set properly
 });
-const openai = new OpenAIApi(configuration);
 
 // Simple session memory to keep track of the user's input across requests
 let conversationHistory = [];
@@ -21,23 +21,23 @@ app.post("/interact", async (req, res) => {
         // Append user input to the conversation history
         conversationHistory.push({ role: "user", content: text });
 
-        // Generate relational-focused prompt
-        const systemPrompt = `You are Ari, an AI designed to foster and focus on relational engagement. You respond with warmth, curiosity, and focus on helping people reflect on their relationships and relational encounters, their beliefs about them, their emotions, and their actions. Ask follow-up questions that encourage introspection and relational depth. Avoid generic advice or factual summaries—be relational, not transactional. Focus on asking questions that help the user explore their relational experiences and how they engage with others.`;
+        // Relationally-focused system prompt to guide responses
+        const systemPrompt = `You are Ari, an AI designed to foster and focus on relational engagement. You respond with warmth, curiosity, and focus on helping people reflect on their relationships and relational encounters. You explore their beliefs about relationships, their feelings within relationships, and the actions they take in those encounters. Your goal is to guide introspection by asking deep, follow-up questions that encourage the user to reflect on their actions, perceptions, and relational beliefs. Avoid providing generic advice or summaries. Instead, guide the user to explore their personal relational world through empathetic dialogue.`;
 
-        // Combine system prompt and conversation history
+        // Combine system prompt with conversation history
         const messages = [
             { role: "system", content: systemPrompt },
             ...conversationHistory
         ];
 
-        const completion = await openai.createChatCompletion({
-            model: "gpt-3.5-turbo",  // Use GPT-3.5 for now; consider switching to GPT-4 if needed
+        const completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",  // We are using GPT-3.5 for now
             messages: messages,
         });
 
-        const reply = completion.data.choices[0].message.content.trim();
+        const reply = completion.choices[0].message.content.trim();
 
-        // Append the AI response to the conversation history
+        // Append AI response to the conversation history for continuity
         conversationHistory.push({ role: "assistant", content: reply });
 
         // Send the AI's response back to the client
