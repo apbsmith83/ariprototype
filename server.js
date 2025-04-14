@@ -1,7 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const { OpenAI } = require("openai");
+const { Configuration, OpenAIApi } = require("openai");
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -10,10 +10,13 @@ const port = process.env.PORT || 10000;
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAI({
+// OpenAI Configuration
+const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
+const openai = new OpenAIApi(configuration);
 
+// Route
 app.post("/api/chat", async (req, res) => {
   const { text } = req.body;
 
@@ -22,7 +25,8 @@ app.post("/api/chat", async (req, res) => {
   }
 
   try {
-    const chatCompletion = await openai.chat.completions.create({
+    const chatCompletion = await openai.createChatCompletion({
+      model: "gpt-4",
       messages: [
         {
           role: "system",
@@ -33,17 +37,17 @@ app.post("/api/chat", async (req, res) => {
           content: text,
         },
       ],
-      model: "gpt-4",
     });
 
-    const aiResponse = chatCompletion.choices[0]?.message?.content;
+    const aiResponse = chatCompletion.data.choices[0].message.content;
     res.json({ response: aiResponse });
   } catch (error) {
-    console.error("Error from OpenAI:", error);
+    console.error("Error from OpenAI:", error.response?.data || error.message);
     res.status(500).json({ error: "An error occurred while processing your request." });
   }
 });
 
+// Start server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
