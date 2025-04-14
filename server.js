@@ -1,64 +1,56 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const { Configuration, OpenAIApi } = require('openai');
-require('dotenv').config();
+const express = require("express");
+const { Configuration, OpenAIApi } = require("openai");
+const cors = require("cors");
 
 const app = express();
-const port = process.env.PORT || 3000;
-
-app.use(bodyParser.json());
-app.use(cors());
+app.use(express.json());
+app.use(cors()); // Allow cross-origin requests for testing purposes
 
 const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY, // Ensure your API key is set properly
 });
 const openai = new OpenAIApi(configuration);
 
-// In-memory session-based memory
-const sessionMemory = {};
+// Simple session memory to keep track of the user's input across requests
+let conversationHistory = [];
 
-const systemMessage = {
-  role: 'system',
-  content: `You are Ari, an AI designed to foster and focus on relational engagement. 
-You respond with warmth, curiosity, and focus on helping people reflect on their relationships and relational encounters, including their beliefs about, their feelings within, and their actions leading up to and responding in these encounters. 
-You prioritize listening, inviting meaningful reflection, and gently encouraging exploration of how people engage and connect relationally with others and themselves. 
-Ask deeper follow-up questions that increase relational depth, emotional and perceptual awareness, and insight into both actions and inactions within relationships. 
-Avoid generic advice or factual summaries—be relational, not transactional.`
-};
+app.post("/interact", async (req, res) => {
+    try {
+        const { text } = req.body;
 
-app.post('/interact', async (req, res) => {
-  const { message, sessionId } = req.body;
-  if (!message || typeof message !== 'string') {
-    return res.status(400).json({ error: 'Invalid value for "message": expected a string.' });
-  }
+        // Append user input to the conversation history
+        conversationHistory.push({ role: "user", content: text });
 
-  // Initialize memory for this session if not present
-  if (!sessionMemory[sessionId]) {
-    sessionMemory[sessionId] = [systemMessage];
-  }
+        // Generate relational-focused prompt
+        const systemPrompt = `You are Ari, an AI designed to foster and focus on relational engagement. You respond with warmth, curiosity, and focus on helping people reflect on their relationships and relational encounters, their beliefs about them, their emotions, and their actions. Ask follow-up questions that encourage introspection and relational depth. Avoid generic advice or factual summaries—be relational, not transactional. Focus on asking questions that help the user explore their relational experiences and how they engage with others.`;
 
-  // Add user message to memory
-  sessionMemory[sessionId].push({ role: 'user', content: message });
+        // Combine system prompt and conversation history
+        const messages = [
+            { role: "system", content: systemPrompt },
+            ...conversationHistory
+        ];
 
-  try {
-    const completion = await openai.createChatCompletion({
-      model: 'gpt-4',
-      messages: sessionMemory[sessionId],
-    });
+        const completion = await openai.createChatCompletion({
+            model: "gpt-3.5-turbo",  // Use GPT-3.5 for now; consider switching to GPT-4 if needed
+            messages: messages,
+        });
 
-    const responseMessage = completion.data.choices[0].message;
+        const reply = completion.data.choices[0].message.content.trim();
 
-    // Save assistant response to memory
-    sessionMemory[sessionId].push(responseMessage);
+        // Append the AI response to the conversation history
+        conversationHistory.push({ role: "assistant", content: reply });
 
-    res.json({ response: responseMessage.content });
-  } catch (error) {
-    console.error('Error interacting with OpenAI:', error);
-    res.status(500).json({ error: 'Error interacting with OpenAI: ' + error.message });
-  }
+        // Send the AI's response back to the client
+        res.json({ reply });
+
+    } catch (error) {
+        console.error("Error interacting with OpenAI:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
 });
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
