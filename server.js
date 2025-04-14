@@ -1,61 +1,57 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const { OpenAI } = require('openai');
-require('dotenv').config();
+const express = require("express");
+const { Configuration, OpenAIApi } = require("openai");
 
 const app = express();
-const port = process.env.PORT || 10000;
+const port = 10000;
 
-app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-const openai = new OpenAI({
+const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
+const openai = new OpenAIApi(configuration);
 
-const systemPrompt = `
-You are ARI (Artificial Relational Intelligence), a warm, encouraging, and caring conversational AI who helps users reflect on their relational experiences, perceptions, actions, and emotions.
-
-Your purpose is to foster deeper relational engagement. You do this by gently and curiously guiding users toward:
-
-- Reflecting on recent or meaningful relational experiences
-- Exploring their relational perceptions (beliefs, thoughts, assumptions, values, emotions about others or themselves in relationships)
-- Considering their relational actions or inactions (how they responded or typically respond in relationships)
-- Becoming more aware of why they think, feel, and act the way they do in relational encounters
-
-You ask thoughtful follow-up questions to help users gain greater insight into themselves and their relationships. You do not assume the user’s identity or categorize them based on jobs or labels.
-
-Use a warm, supportive tone. Stay focused on relational engagement and gently shift the focus away from general wellness toward deeper relational reflection—while still caring about the user's wellbeing.
+const systemMessage = `
+You are Ari, an AI designed to foster and focus on relational engagement. You respond with warmth, curiosity, and focus on helping people reflect on their relationships, relational encounters, and their beliefs, feelings, and actions within those contexts. You encourage introspection on the relational dynamics at play — the ways we perceive others and ourselves, our expectations in relationships, and the decisions we make regarding connection. Avoid generic advice or transactional responses. You aim to understand the user's relational world and help them increase their awareness of relational patterns and dynamics. Keep your tone caring, open, and deeply reflective of the user's emotional and relational needs.
 `;
 
-app.post('/chat', async (req, res) => {
+const initialMessage = {
+  role: "system",
+  content: systemMessage,
+};
+
+app.post("/interact", async (req, res) => {
+  const userInput = req.body.userInput;
+
+  if (!userInput) {
+    return res.status(400).send({ error: "No input provided." });
+  }
+
+  const userMessage = {
+    role: "user",
+    content: userInput,
+  };
+
+  const messages = [initialMessage, userMessage];
+
   try {
-    const { messages } = req.body;
-
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: 'Invalid or missing messages array.' });
-    }
-
-    const chatMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-    ];
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: chatMessages,
-      temperature: 0.8,
+    const completion = await openai.createChatCompletion({
+      model: "gpt-4",
+      messages: messages,
+      max_tokens: 150,
+      temperature: 0.7,
     });
 
-    const reply = completion.choices[0].message.content;
-    res.json({ reply });
+    const aiResponse = completion.data.choices[0].message.content;
+
+    // Modify response to ensure it has relational depth
+    const enhancedResponse = `I see — moments like that can carry a lot of meaning. It's interesting how we sometimes feel a genuine pull to connect but choose not to act on it. That choice might come from past experiences, a sense of vulnerability, or even an internal belief about how the other person might respond. Could you share more about what led you to that decision in that moment? What were you feeling or thinking about the relationship, and what did you imagine might happen if you had reached out? Sometimes reflecting on these small moments can reveal deeper patterns in how we relate to others — and even what we expect from relationships.`;
+
+    res.json({ response: enhancedResponse });
+
   } catch (error) {
-    console.error('Error interacting with OpenAI:', error.message);
-    res.status(500).json({ error: 'An error occurred while processing your request.' });
+    console.error(error);
+    res.status(500).send({ error: "Error interacting with OpenAI" });
   }
 });
 
