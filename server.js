@@ -18,6 +18,11 @@ app.post("/interact", async (req, res) => {
     try {
         const { text } = req.body;
 
+        // Check if 'text' is present and is a string
+        if (!text || typeof text !== 'string') {
+            return res.status(400).json({ error: 'Invalid input. Text is required and should be a string.' });
+        }
+
         // Append user input to the conversation history
         conversationHistory.push({ role: "user", content: text });
 
