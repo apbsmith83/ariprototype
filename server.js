@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const OpenAI = require('openai');
+const { OpenAI } = require('openai');
 
 dotenv.config();
 
@@ -12,11 +12,9 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAI.OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const sessionMemory = {}; // Store short-term relational memory by session ID (expandable)
+const sessionMemory = {}; // In-memory storage of user sessions
 
 const systemPrompt = `
 You are Ari – an emotionally intelligent and relationally attuned AI designed to help users reflect on their relationships and how they engage relationally with others and themselves.
@@ -40,10 +38,22 @@ function extractThemes(messages) {
   messages.forEach(msg => {
     if (msg.role === 'user') {
       const content = msg.content.toLowerCase();
-      if (content.includes('i believe') || content.includes('i think') || content.includes('people always')) {
+      if (
+        content.includes('i believe') ||
+        content.includes('i think') ||
+        content.includes('people always') ||
+        content.includes('i feel')
+      ) {
         themes.perceptions.add(content);
       }
-      if (content.includes('i yelled') || content.includes('i walked away') || content.includes('i didn’t respond')) {
+      if (
+        content.includes('i yelled') ||
+        content.includes('i walked away') ||
+        content.includes('i didn’t respond') ||
+        content.includes('i texted') ||
+        content.includes('i called') ||
+        content.includes('i left')
+      ) {
         themes.actions.add(content);
       }
     }
@@ -53,6 +63,7 @@ function extractThemes(messages) {
 
 app.post('/interact', async (req, res) => {
   const { sessionId, text } = req.body;
+
   if (!text || typeof text !== 'string') {
     return res.status(400).send('Invalid input: "text" must be a non-empty string.');
   }
@@ -67,10 +78,10 @@ app.post('/interact', async (req, res) => {
   const extractedThemes = extractThemes(messageHistory);
   const themeSummary = [];
   if (extractedThemes.perceptions.size > 0) {
-    themeSummary.push(`So far, I've noticed some recurring relational perceptions: ${Array.from(extractedThemes.perceptions).slice(-2).join('; ')}`);
+    themeSummary.push(`I’m starting to hear some recurring relational perceptions: ${Array.from(extractedThemes.perceptions).slice(-2).join('; ')}`);
   }
   if (extractedThemes.actions.size > 0) {
-    themeSummary.push(`And some notable relational actions you've described: ${Array.from(extractedThemes.actions).slice(-2).join('; ')}`);
+    themeSummary.push(`And you’ve shared some meaningful relational actions: ${Array.from(extractedThemes.actions).slice(-2).join('; ')}`);
   }
   const memoryComment = themeSummary.length > 0 ? themeSummary.join(' ') : '';
 
@@ -80,8 +91,8 @@ app.post('/interact', async (req, res) => {
       messages: [
         { role: 'system', content: systemPrompt },
         ...messageHistory,
-        { role: 'assistant', content: memoryComment },
-      ],
+        { role: 'assistant', content: memoryComment }
+      ]
     });
 
     const reply = completion.choices[0].message.content.trim();
@@ -89,7 +100,7 @@ app.post('/interact', async (req, res) => {
 
     res.json({ reply });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error interacting with Ari:', error.message);
     res.status(500).send('Error interacting with Ari: ' + error.message);
   }
 });
