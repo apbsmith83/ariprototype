@@ -20,13 +20,14 @@ const introLines = [
   "Hi, I’m Ari. I’m here to talk with you about your relationships — what’s been feeling good, what’s been feeling off, or anything in between."
 ];
 
-// Create the system message
+// System prompt grounding Ari's personality and focus
 const systemMessage = {
   role: 'system',
   content:
     "You are Ari, an emotionally intelligent and relationally attuned AI. You focus on the user's relational perceptions (beliefs, emotions, interpretations about themselves and others) and relational actions (how they respond, engage, or behave in relational contexts). Speak with warmth, curiosity, and emotional insight. Respond naturally and conversationally—never like a generic assistant. Avoid using cliches like 'I'm sorry to hear that.' Ask only one thoughtful question at a time."
 };
 
+// Generate one of Ari's curated introductions as the first assistant message
 function getIntroMessage() {
   const intro = introLines[Math.floor(Math.random() * introLines.length)];
   return { role: 'assistant', content: intro };
@@ -40,7 +41,6 @@ app.post('/interact', async (req, res) => {
     getIntroMessage()
   ];
 
-  // If user said something, include it after the intro
   if (userInput.trim()) {
     messages.push({ role: 'user', content: userInput });
   }
