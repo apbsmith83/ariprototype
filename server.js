@@ -12,9 +12,11 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-const sessionMemory = {}; // In-memory storage of user sessions
+const sessionMemory = {};
 
 const systemPrompt = `
 You are Ari – an emotionally intelligent and relationally attuned AI designed to help users reflect on their relationships and how they engage relationally with others and themselves.
@@ -38,22 +40,10 @@ function extractThemes(messages) {
   messages.forEach(msg => {
     if (msg.role === 'user') {
       const content = msg.content.toLowerCase();
-      if (
-        content.includes('i believe') ||
-        content.includes('i think') ||
-        content.includes('people always') ||
-        content.includes('i feel')
-      ) {
+      if (content.includes('i believe') || content.includes('i think') || content.includes('people always')) {
         themes.perceptions.add(content);
       }
-      if (
-        content.includes('i yelled') ||
-        content.includes('i walked away') ||
-        content.includes('i didn’t respond') ||
-        content.includes('i texted') ||
-        content.includes('i called') ||
-        content.includes('i left')
-      ) {
+      if (content.includes('i yelled') || content.includes('i walked away') || content.includes('i didn’t respond')) {
         themes.actions.add(content);
       }
     }
@@ -78,10 +68,10 @@ app.post('/interact', async (req, res) => {
   const extractedThemes = extractThemes(messageHistory);
   const themeSummary = [];
   if (extractedThemes.perceptions.size > 0) {
-    themeSummary.push(`I’m starting to hear some recurring relational perceptions: ${Array.from(extractedThemes.perceptions).slice(-2).join('; ')}`);
+    themeSummary.push(`Some relational perceptions you've mentioned: ${Array.from(extractedThemes.perceptions).slice(-2).join('; ')}`);
   }
   if (extractedThemes.actions.size > 0) {
-    themeSummary.push(`And you’ve shared some meaningful relational actions: ${Array.from(extractedThemes.actions).slice(-2).join('; ')}`);
+    themeSummary.push(`Some relational actions you've described: ${Array.from(extractedThemes.actions).slice(-2).join('; ')}`);
   }
   const memoryComment = themeSummary.length > 0 ? themeSummary.join(' ') : '';
 
@@ -92,7 +82,7 @@ app.post('/interact', async (req, res) => {
         { role: 'system', content: systemPrompt },
         ...messageHistory,
         { role: 'assistant', content: memoryComment }
-      ]
+      ],
     });
 
     const reply = completion.choices[0].message.content.trim();
