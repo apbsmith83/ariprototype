@@ -31,16 +31,14 @@ function getSystemMessage() {
 
 app.post('/interact', async (req, res) => {
   const userInput = req.body.text?.trim();
-  const messages = [];
+const messages = [];
 
-  if (!userInput) {
-    // Start the conversation with just Ari's intro message
-    messages.push(getSystemMessage());
-  } else {
-    // Continue the conversation
-    messages.push(getSystemMessage());
-    messages.push({ role: 'user', content: userInput });
-  }
+if (!userInput) {
+  messages.push(getSystemMessage()); // Ari opens
+} else {
+  messages.push(getSystemMessage()); // Setup tone
+  messages.push({ role: 'user', content: userInput });
+}
 
   try {
     const completion = await openai.chat.completions.create({
