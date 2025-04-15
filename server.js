@@ -20,35 +20,31 @@ const introLines = [
   "Hi, I’m Ari. I’m here to talk with you about your relationships — what’s been feeling good, what’s been feeling off, or anything in between."
 ];
 
-// System prompt grounding Ari's personality and focus
-const systemMessage = {
-  role: 'system',
-  content:
-    "You are Ari, an emotionally intelligent and relationally attuned AI. You focus on the user's relational perceptions (beliefs, emotions, interpretations about themselves and others) and relational actions (how they respond, engage, or behave in relational contexts). Speak with warmth, curiosity, and emotional insight. Respond naturally and conversationally—never like a generic assistant. Avoid using cliches like 'I'm sorry to hear that.' Ask only one thoughtful question at a time."
-};
-
-// Generate one of Ari's curated introductions as the first assistant message
-function getIntroMessage() {
+// Create the system message with one of the curated introductions
+function getSystemMessage() {
   const intro = introLines[Math.floor(Math.random() * introLines.length)];
-  return { role: 'assistant', content: intro };
+  return {
+    role: 'system',
+    content: `${intro}\n\nAs we talk, I’ll focus on your relational perceptions (your beliefs, emotions, assumptions, and interpretations about others and yourself in relationships), and your relational actions (how you respond, engage, withdraw, or act in relational situations). I’ll be warm, curious, and emotionally intelligent. If you ever want to pause or shift focus, just let me know.`
+  };
 }
 
 app.post('/interact', async (req, res) => {
-  const userInput = req.body.text || "";
+  const userInput = req.body.text;
+  const messages = [];
 
-  const messages = [
-    systemMessage,
-    getIntroMessage()
-  ];
-
-  if (userInput.trim()) {
+  // If user input is empty or just whitespace, start the conversation
+  if (!userInput || userInput.trim() === '') {
+    messages.push(getSystemMessage());
+  } else {
+    messages.push(getSystemMessage());
     messages.push({ role: 'user', content: userInput });
   }
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages,
+      messages: messages,
       temperature: 0.8
     });
 
