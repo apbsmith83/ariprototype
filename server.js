@@ -31,11 +31,12 @@ function getSystemMessage() {
 
 app.post('/interact', async (req, res) => {
   const userInput = req.body.text;
+  let messages = [getSystemMessage()];
 
-  const messages = [
-    getSystemMessage(),
-    { role: 'user', content: userInput || '' } // Ensure user role is included
-  ];
+  // Only include user message if one is provided
+  if (userInput && userInput.trim() !== '' && userInput !== 'INITIATE_SESSION') {
+    messages.push({ role: 'user', content: userInput });
+  }
 
   try {
     const completion = await openai.chat.completions.create({
