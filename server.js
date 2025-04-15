@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { OpenAI } = require('openai');
+const OpenAI = require('openai');
 
 dotenv.config();
 
@@ -12,7 +12,9 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI.OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const sessionMemory = {}; // Store short-term relational memory by session ID (expandable)
 
@@ -78,8 +80,8 @@ app.post('/interact', async (req, res) => {
       messages: [
         { role: 'system', content: systemPrompt },
         ...messageHistory,
-        { role: 'assistant', content: memoryComment }
-      ]
+        { role: 'assistant', content: memoryComment },
+      ],
     });
 
     const reply = completion.choices[0].message.content.trim();
