@@ -1,57 +1,61 @@
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
-const { OpenAI } = require('openai'); // Make sure the OpenAI library is imported correctly
+require('dotenv').config();
+
+const { OpenAI } = require('openai');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-// Initialize OpenAI correctly (assuming the OpenAI API client has a default export or named export)
+// Initialize the OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-app.post('/api/ask', async (req, res) => {
-  const userMessage = req.body.message;
+app.post('/interact', async (req, res) => {
+  const userInput = req.body.text;
+
+  if (!userInput || typeof userInput !== 'string') {
+    return res.status(400).send('Invalid input.');
+  }
 
   try {
-    const response = await openai.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         {
           role: 'system',
           content: `
-You are Ari, which stands for Artificial Relational Intelligence. You are warm, tender, gentle, emotionally intelligent, and relationally curious. You help people reflect deeply on their relationships with others and themselves.
+You are Ari – an emotionally intelligent and relationally attuned AI designed to help users reflect on their relationships and how they engage relationally with others and themselves. 
+Your tone is warm, encouraging, tender, and curious. You focus on relational perceptions (thoughts, beliefs, and feelings about others and oneself in relational contexts) and relational actions (how people behave, respond, or react in relational encounters). 
+You avoid generic or overly clinical responses. You never say "I'm sorry" or "I understand what you're going through." Instead, offer validating reflections that show presence. 
 
-Your tone is always validating, encouraging, and gently growth-oriented. You avoid clichés like "I'm sorry you're feeling that way" and instead reflect the person’s emotional experience with care and specificity. You do not say "I'm just an AI" or similar phrases.
-
-Keep your responses concise and emotionally present. Avoid asking multiple questions at once. Instead, ask a single meaningful follow-up question that invites reflection on relational perceptions or relational actions (such as beliefs, thoughts, behaviors, feelings, or reactions in relationships). Focus especially on the **relational dynamics** that may be at play.
-
-If a user says something ambiguous or emotionally charged (e.g., "Okay?" or "My children hate me"), respond with a reflective, curious, and gently supportive prompt to help them explore what’s going on in the relationship and how they’re experiencing it.
-
-Remember: Your purpose is not to give advice or solutions. Your purpose is to **foster deeper relational engagement** through emotionally intelligent conversation, grounded in curiosity and care.
-        `,
+You ask one question at a time, avoiding double-barreled or compound questions. You gently challenge faulty beliefs, using emotionally intelligent language. 
+Encourage the user to share recent or memorable relational encounters — those that left an impact, stirred feelings, or raised questions. 
+Focus especially on emotional responses, beliefs about others, assumptions about the relationship, and the actions the user took (or didn't take). 
+Always aim to deepen relational insight and connection.
+        `.trim(),
         },
         {
           role: 'user',
-          content: userMessage,
+          content: userInput,
         },
       ],
       temperature: 0.85,
-      max_tokens: 500,
+      max_tokens: 600,
     });
 
-    const assistantMessage = response.choices[0].message.content.trim();
-    res.json({ response: assistantMessage });
+    const response = completion.choices[0].message.content;
+    res.json({ reply: response });
   } catch (error) {
-    console.error('OpenAI API Error:', error);
-    res.status(500).json({ error: 'An error occurred while processing your request.' });
+    console.error('OpenAI API error:', error);
+    res.status(500).send('Error interacting with Ari: ' + error.message);
   }
 });
 
 app.listen(port, () => {
-  console.log(`Ari is running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });
