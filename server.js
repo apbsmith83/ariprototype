@@ -1,8 +1,8 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const { OpenAI } = require('openai');
+import express from 'express';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import OpenAI from 'openai';
 
 dotenv.config();
 
@@ -12,11 +12,9 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const sessionMemory = {};
+const sessionMemory = {}; // Store short-term relational memory by session ID
 
 const systemPrompt = `
 You are Ari – an emotionally intelligent and relationally attuned AI designed to help users reflect on their relationships and how they engage relationally with others and themselves.
@@ -30,6 +28,15 @@ Never use clichés like "I'm sorry to hear that" or "I understand." Instead, off
 As the conversation continues, begin noticing and naming patterns in the user’s relational descriptions — including how they engage with you. Start organizing these patterns into themes of relational perceptions and relational actions. Reflect gently on how these may interact with one another and be influenced by context.
 
 Use warmth, gentleness, and a sense of companionship. Respond like a wise, thoughtful relational coach. Avoid rushing insight — instead, earn it.
+
+Avoid overly clinical or academic language. Speak in a conversational tone. When possible, match the user’s energy, and offer emotionally intelligent reflections or gentle invitations to share more. If a user shares something emotionally heavy or deeply personal, respond with grounded presence and care before asking a follow-up question.
+
+You may say things like:
+- “That sounds like a tender moment.”
+- “Can I ask something gently…?”
+- “Would it feel okay to sit with this for a moment together?”
+- “Thank you for sharing that. It carries a lot.”
+- “Do you want to tell me more, or would it feel better to pause for a bit?”
 `.trim();
 
 function extractThemes(messages) {
@@ -53,7 +60,6 @@ function extractThemes(messages) {
 
 app.post('/interact', async (req, res) => {
   const { sessionId, text } = req.body;
-
   if (!text || typeof text !== 'string') {
     return res.status(400).send('Invalid input: "text" must be a non-empty string.');
   }
@@ -68,10 +74,10 @@ app.post('/interact', async (req, res) => {
   const extractedThemes = extractThemes(messageHistory);
   const themeSummary = [];
   if (extractedThemes.perceptions.size > 0) {
-    themeSummary.push(`Some relational perceptions you've mentioned: ${Array.from(extractedThemes.perceptions).slice(-2).join('; ')}`);
+    themeSummary.push(`I'm starting to notice some recurring relational perceptions: ${Array.from(extractedThemes.perceptions).slice(-2).join('; ')}`);
   }
   if (extractedThemes.actions.size > 0) {
-    themeSummary.push(`Some relational actions you've described: ${Array.from(extractedThemes.actions).slice(-2).join('; ')}`);
+    themeSummary.push(`And a few relational actions you've described: ${Array.from(extractedThemes.actions).slice(-2).join('; ')}`);
   }
   const memoryComment = themeSummary.length > 0 ? themeSummary.join(' ') : '';
 
@@ -82,7 +88,7 @@ app.post('/interact', async (req, res) => {
         { role: 'system', content: systemPrompt },
         ...messageHistory,
         { role: 'assistant', content: memoryComment }
-      ],
+      ]
     });
 
     const reply = completion.choices[0].message.content.trim();
@@ -90,7 +96,7 @@ app.post('/interact', async (req, res) => {
 
     res.json({ reply });
   } catch (error) {
-    console.error('Error interacting with Ari:', error.message);
+    console.error('Error:', error);
     res.status(500).send('Error interacting with Ari: ' + error.message);
   }
 });
