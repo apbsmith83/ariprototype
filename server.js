@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const { OpenAI } = require('openai');
+const { Configuration, OpenAIApi } = require('openai');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -10,10 +10,11 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Initialize the OpenAI client
-const openai = new OpenAI({
+const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const openai = new OpenAIApi(configuration);
 
 app.post('/interact', async (req, res) => {
   const userInput = req.body.text;
@@ -23,7 +24,7 @@ app.post('/interact', async (req, res) => {
   }
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await openai.createChatCompletion({
       model: 'gpt-4',
       messages: [
         {
@@ -37,7 +38,7 @@ You ask one question at a time, avoiding double-barreled or compound questions. 
 Encourage the user to share recent or memorable relational encounters — those that left an impact, stirred feelings, or raised questions. 
 Focus especially on emotional responses, beliefs about others, assumptions about the relationship, and the actions the user took (or didn't take). 
 Always aim to deepen relational insight and connection.
-        `.trim(),
+          `.trim(),
         },
         {
           role: 'user',
@@ -48,7 +49,7 @@ Always aim to deepen relational insight and connection.
       max_tokens: 600,
     });
 
-    const response = completion.choices[0].message.content;
+    const response = completion.data.choices[0].message.content;
     res.json({ reply: response });
   } catch (error) {
     console.error('OpenAI API error:', error);
