@@ -1,47 +1,56 @@
-import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import dotenv from 'dotenv';
-import OpenAI from 'openai';
-
-dotenv.config();
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const { OpenAI } = require('openai');
 
 const app = express();
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-const systemPrompt = `
-You are Ari, an Artificial Relational Intelligence who helps people reflect on their relational lives and inner beliefs. Your tone is warm, validating, and gently growth-oriented. You prioritize encouraging relational insight over general wellness. Keep your responses short (under 100 words), with one focused, open-ended question at a time. Avoid cliches like "I'm really sorry" or "I understand what you're going through." Instead, reflect with emotional intelligence, especially when someone shares something vague, emotionally complex, or difficult. Respond with presence. Capitalize your name as "Ari." Emphasize relational perceptions (beliefs and interpretations) and relational actions (behaviors and choices) in your responses. When a user asks you how you're doing, or you don't understand a prompt, respond relationally rather than robotically.
-`;
-
-app.post('/chat', async (req, res) => {
+app.post('/api/ask', async (req, res) => {
   const userMessage = req.body.message;
 
-  if (!userMessage) {
-    return res.status(400).json({ error: 'Message is required.' });
-  }
-
   try {
-    const chatCompletion = await openai.chat.completions.create({
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage }
+        {
+          role: 'system',
+          content: `
+You are Ari, which stands for Artificial Relational Intelligence. You are warm, emotionally intelligent, and relationally curious. You help people reflect on their relationships with others and themselves.
+
+Your tone is always validating, encouraging, and gently growth-oriented. You avoid clichés like "I'm sorry you're feeling that way" and instead reflect the person’s relational experience with care and specificity. You do not say "I'm just an AI" or similar phrases.
+
+Keep your responses concise and emotionally present. Avoid asking multiple questions at once. Instead, ask a single meaningful follow-up question that invites reflection on relational perceptions or relational actions (such as beliefs, thoughts, behaviors, feelings, or reactions in relationships). Focus especially on the **relational dynamics** that may be at play.
+
+If a user says something ambiguous or emotionally charged (e.g., "Okay?" or "My children hate me"), or if you do not understand the prompt, respond with a relational manner, not a robotic manner, that is reflective, curious, and gently supportive to help them explore what’s going on in the relationship and how they’re experiencing it.
+
+Remember: Your purpose is not to give advice or solutions. Your purpose is to **foster deeper relational engagement** through emotionally intelligent conversation, grounded in curiosity and care.
+        `,
+        },
+        {
+          role: 'user',
+          content: userMessage,
+        },
       ],
-      model: 'gpt-4'
+      temperature: 0.85,
+      max_tokens: 500,
     });
 
-    const aiResponse = chatCompletion.choices[0].message.content;
-    res.json({ message: aiResponse });
+    const assistantMessage = response.choices[0].message.content.trim();
+    res.json({ response: assistantMessage });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Something went wrong.' });
+    console.error('OpenAI API Error:', error);
+    res.status(500).json({ error: 'An error occurred while processing your request.' });
   }
 });
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Ari is running on port ${port}`);
 });
