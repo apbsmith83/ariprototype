@@ -1,17 +1,17 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const { Configuration, OpenAIApi } = require('openai');
 require('dotenv').config();
+
+const { OpenAI } = require('openai');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
 // Randomized intro options
 const introMessages = [
@@ -22,7 +22,7 @@ const introMessages = [
   "Hi there. I’m Ari. I’ve been designed to help explore your experiences with others — how you connect, how you act, how you feel. Would you like to begin somewhere specific, or ease into it?"
 ];
 
-// Handle first greeting request
+// Return intro message on homepage
 app.get('/', (req, res) => {
   const intro = introMessages[Math.floor(Math.random() * introMessages.length)];
   res.json({ intro });
@@ -33,7 +33,7 @@ app.post('/interact', async (req, res) => {
   const userInput = req.body.text;
 
   try {
-    const completion = await openai.createChatCompletion({
+    const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         {
@@ -54,10 +54,10 @@ You should notice and begin tracking relational patterns in the user's responses
       ],
     });
 
-    const response = completion.data.choices[0].message.content;
+    const response = completion.choices[0].message.content;
     res.json({ reply: response });
   } catch (error) {
-    console.error('OpenAI API error:', error.message);
+    console.error('OpenAI API error:', error);
     res.status(500).send('Error interacting with Ari: ' + error.message);
   }
 });
