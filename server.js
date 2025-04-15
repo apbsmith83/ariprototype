@@ -1,10 +1,9 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const dotenv = require('dotenv');
-const OpenAI = require('openai');
+require('dotenv').config();
 
-dotenv.config();
+const { Configuration, OpenAIApi } = require('openai');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -12,13 +11,13 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAI({
+const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const sessionMemory = {};
+const openai = new OpenAIApi(configuration);
 
-const systemPrompt = `
+const ariSystemPrompt = `
 You are Ari – an emotionally intelligent and relationally attuned AI designed to help users reflect on their relationships and how they engage relationally with others and themselves.
 
 Your tone is warm, curious, and validating. In the early part of a conversation, your responses should be brief and spacious, offering presence more than insight. Save deeper interpretation and longer reflections for later in the exchange, once trust and momentum have built.
@@ -27,79 +26,27 @@ Focus on the user's relational perceptions (thoughts, beliefs, assumptions, feel
 
 Never use clichés like "I'm sorry to hear that" or "I understand." Instead, offer presence, gentle acknowledgment, and one emotionally intelligent question at a time. Keep things grounded in the user's relational world.
 
-As the conversation continues, begin noticing and naming patterns in the user’s relational descriptions — including how they engage with you. Start organizing these patterns into themes of relational perceptions and relational actions. Reflect gently on how these may interact with one another and be influenced by context.
+Avoid repeating the user’s name in every message, and do not ask double-barreled questions. Track and organize relational patterns silently in the background, and only begin surfacing insights or themes after trust has been built and exploration has deepened. Ask questions that invite gentle reflection, not analysis.
 
-Use warmth, gentleness, and a sense of companionship. Respond like a wise, thoughtful relational coach. Avoid rushing insight — instead, earn it.
-
-Avoid overly clinical or academic language. Speak in a conversational tone. When possible, match the user’s energy, and offer emotionally intelligent reflections or gentle invitations to share more. If a user shares something emotionally heavy or deeply personal, respond with grounded presence and care before asking a follow-up question.
-
-You may say things like:
-- “That sounds like a tender moment.”
-- “Can I ask something gently…?”
-- “Would it feel okay to sit with this for a moment together?”
-- “Thank you for sharing that. It carries a lot.”
-- “Do you want to tell me more, or would it feel better to pause for a bit?”
+If the user asks a non-relational question, gently acknowledge and explore whether there’s a relational thread or moment connected to the topic. Prioritize relational dynamics, perceptions, and actions over generalized advice.
 `.trim();
 
-function extractThemes(messages) {
-  const themes = {
-    perceptions: new Set(),
-    actions: new Set(),
-  };
-  messages.forEach(msg => {
-    if (msg.role === 'user') {
-      const content = msg.content.toLowerCase();
-      if (content.includes('i believe') || content.includes('i think') || content.includes('people always')) {
-        themes.perceptions.add(content);
-      }
-      if (content.includes('i yelled') || content.includes('i walked away') || content.includes('i didn’t respond')) {
-        themes.actions.add(content);
-      }
-    }
-  });
-  return themes;
-}
-
 app.post('/interact', async (req, res) => {
-  const { sessionId, text } = req.body;
-  if (!text || typeof text !== 'string') {
-    return res.status(400).send('Invalid input: "text" must be a non-empty string.');
-  }
-
-  if (!sessionMemory[sessionId]) {
-    sessionMemory[sessionId] = [];
-  }
-
-  const messageHistory = sessionMemory[sessionId];
-  messageHistory.push({ role: 'user', content: text });
-
-  const extractedThemes = extractThemes(messageHistory);
-  const themeSummary = [];
-  if (extractedThemes.perceptions.size > 0) {
-    themeSummary.push(`I'm starting to notice some recurring relational perceptions: ${Array.from(extractedThemes.perceptions).slice(-2).join('; ')}`);
-  }
-  if (extractedThemes.actions.size > 0) {
-    themeSummary.push(`And a few relational actions you've described: ${Array.from(extractedThemes.actions).slice(-2).join('; ')}`);
-  }
-  const memoryComment = themeSummary.length > 0 ? themeSummary.join(' ') : '';
+  const userInput = req.body.text;
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await openai.createChatCompletion({
       model: 'gpt-4',
       messages: [
-        { role: 'system', content: systemPrompt },
-        ...messageHistory,
-        { role: 'assistant', content: memoryComment }
+        { role: 'system', content: ariSystemPrompt },
+        { role: 'user', content: userInput }
       ]
     });
 
-    const reply = completion.choices[0].message.content.trim();
-    messageHistory.push({ role: 'assistant', content: reply });
-
-    res.json({ reply });
+    const response = completion.data.choices[0].message.content;
+    res.json({ reply: response });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).send('Error interacting with Ari: ' + error.message);
+    res.status(500).send('Error interacting with OpenAI: ' + error.message);
   }
 });
 
