@@ -14,7 +14,7 @@ const openai = new OpenAI({
 });
 
 // Randomized intro options
-const introMessages = [
+const introLines = [
   "Hi, I'm Ari. I'm the world's first Artificial Relational Intelligence (hence, Ari!). My job is to talk with you about relationships. How does that sound?",
   "I’m Ari — short for Artificial Relational Intelligence. If you’re up for it, I’d love to talk about your relationships: where they’ve been, where they are, and what they mean to you.",
   "Hi, I’m Ari. I’m here to think and feel alongside you about your relationships. Want to tell me where you’d like to begin?",
@@ -22,9 +22,9 @@ const introMessages = [
   "Hi there. I’m Ari. I’ve been designed to help explore your experiences with others — how you connect, how you act, how you feel. Would you like to begin somewhere specific, or ease into it?"
 ];
 
-// Return intro message on homepage
+// Return intro line on homepage
 app.get('/', (req, res) => {
-  const intro = introMessages[Math.floor(Math.random() * introMessages.length)];
+  const intro = introLines[Math.floor(Math.random() * introLines.length)];
   res.json({ intro });
 });
 
