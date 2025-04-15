@@ -1,3 +1,5 @@
+// server.js
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -34,7 +36,7 @@ app.post('/interact', async (req, res) => {
   let messages = [getSystemMessage()];
 
   // Only include user message if one is provided
-  if (userInput && userInput.trim() !== '' && userInput !== 'INITIATE_SESSION') {
+  if (userInput && userInput.trim() !== '') {
     messages.push({ role: 'user', content: userInput });
   }
 
