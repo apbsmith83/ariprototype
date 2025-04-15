@@ -11,7 +11,7 @@ app.use(bodyParser.json());
 const port = process.env.PORT || 3000;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Relationally intelligent introduction lines for Ari
+// Curated, relationally intelligent introductions for Ari
 const introLines = [
   "Hi, I'm Ari. I'm the world's first Artificial Relational Intelligence (hence, Ari!). My job is to talk with you about relationships. How does that sound?",
   "Hey there, I'm Ari. I’m here to help you reflect on the relationships that shape your world — starting wherever you’d like.",
@@ -20,7 +20,7 @@ const introLines = [
   "Hi, I’m Ari. I’m here to talk with you about your relationships — what’s been feeling good, what’s been feeling off, or anything in between."
 ];
 
-// Generates a system message using one of Ari's introductions
+// Create the system message with one of the curated introductions
 function getSystemMessage() {
   const intro = introLines[Math.floor(Math.random() * introLines.length)];
   return {
@@ -31,14 +31,17 @@ function getSystemMessage() {
 
 app.post('/interact', async (req, res) => {
   const userInput = req.body.text?.trim();
-const messages = [];
+  const messages = [];
 
-if (!userInput) {
-  messages.push(getSystemMessage()); // Ari opens
-} else {
-  messages.push(getSystemMessage()); // Setup tone
-  messages.push({ role: 'user', content: userInput });
-}
+  if (!userInput) {
+    messages.push(getSystemMessage());
+  } else {
+    messages.push(getSystemMessage());
+    messages.push({ role: 'user', content: userInput });
+  }
+
+  // 🛠 DEBUG: Print messages being sent to OpenAI
+  console.log('Messages being sent to OpenAI:', messages);
 
   try {
     const completion = await openai.chat.completions.create({
