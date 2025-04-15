@@ -30,18 +30,12 @@ function getSystemMessage() {
 }
 
 app.post('/interact', async (req, res) => {
-  const userInput = req.body.text?.trim();
-  const messages = [];
+  const userInput = req.body.text;
 
-  if (!userInput) {
-    messages.push(getSystemMessage());
-  } else {
-    messages.push(getSystemMessage());
-    messages.push({ role: 'user', content: userInput });
-  }
-
-  // 🛠 DEBUG: Print messages being sent to OpenAI
-  console.log('Messages being sent to OpenAI:', messages);
+  const messages = [
+    getSystemMessage(),
+    { role: 'user', content: userInput || '' } // Ensure user role is included
+  ];
 
   try {
     const completion = await openai.chat.completions.create({
