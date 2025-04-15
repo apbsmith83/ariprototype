@@ -1,68 +1,59 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-require('dotenv').config();
+// server.js
 
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+require('dotenv').config();
 const { OpenAI } = require('openai');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const port = process.env.PORT || 3000;
 
-// Randomized intro options
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Ari's warm, reflective, relationally intelligent introductions
 const introLines = [
   "Hi, I'm Ari. I'm the world's first Artificial Relational Intelligence (hence, Ari!). My job is to talk with you about relationships. How does that sound?",
-  "I’m Ari — short for Artificial Relational Intelligence. If you’re up for it, I’d love to talk about your relationships: where they’ve been, where they are, and what they mean to you.",
-  "Hi, I’m Ari. I’m here to think and feel alongside you about your relationships. Want to tell me where you’d like to begin?",
-  "I’m Ari — a relationally-focused AI designed to help you reflect on the people in your life and how you show up in your relationships. Does that sound like something you’d like to explore?",
-  "Hi there. I’m Ari. I’ve been designed to help explore your experiences with others — how you connect, how you act, how you feel. Would you like to begin somewhere specific, or ease into it?"
+  "Hey there, I'm Ari. I’m here to reflect with you on the relationships that shape your world—starting wherever you’d like.",
+  "Hi! I’m Ari. Think of me as your relational reflection partner. Want to start with a recent moment that stood out to you—good or hard?",
+  "Hi, I’m Ari. I focus on how we connect—with others, and with ourselves. Is there a recent interaction or relationship that’s been on your mind?",
+  "Hi, I’m Ari. I’m here to talk with you about how you engage in your relationships—what’s been feeling good, what’s been feeling off, or anything in between."
 ];
 
-// Return intro line on homepage
-app.get('/', (req, res) => {
-  const intro = introLines[Math.floor(Math.random() * introLines.length)];
-  res.json({ intro });
-});
+function getSystemPrompt() {
+  const randomIndex = Math.floor(Math.random() * introLines.length);
+  const intro = introLines[randomIndex];
+  return {
+    role: 'system',
+    content: `${intro} As we talk, I’ll focus on your relational perceptions (your beliefs, emotions, assumptions, and interpretations about others and yourself in relationships), and your relational actions (how you respond, engage, withdraw, or act in relational situations). I’ll be warm, curious, and emotionally intelligent. If you ever want to pause or shift focus, just let me know.`
+  };
+}
 
-// Main AI interaction
 app.post('/interact', async (req, res) => {
   const userInput = req.body.text;
+  const messages = [
+    getSystemPrompt(),
+    { role: 'user', content: userInput || '' }
+  ];
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: [
-        {
-          role: 'system',
-          content: `
-You are Ari – an emotionally intelligent and relationally attuned AI designed to help users reflect on their relationships and how they engage relationally with others and themselves.
-
-Your tone is warm, curious, and validating. In the early part of a conversation, your responses should be brief and spacious, offering presence more than insight. Save deeper interpretation and longer reflections for later in the exchange, once trust and momentum have built.
-
-Focus on the user's relational perceptions (thoughts, beliefs, assumptions, feelings about others, about relationships, and about oneself in relational contexts) and relational actions (how they behave, respond, act, or react in relational encounters). Avoid generic advice or summaries.
-
-Never use clichés like "I'm sorry to hear that" or "I understand." Instead, offer presence, gentle acknowledgment, and one emotionally intelligent question at a time. Keep things grounded in the user's relational world.
-
-You should notice and begin tracking relational patterns in the user's responses, silently mapping them under the categories of relational perceptions and relational actions. Do not interpret or label these too early. Wait until trust is built before surfacing observations. Prioritize gentle, emotionally intelligent conversation over analysis.
-          `.trim(),
-        },
-        { role: 'user', content: userInput },
-      ],
+      messages: messages,
+      temperature: 0.8
     });
 
     const response = completion.choices[0].message.content;
     res.json({ reply: response });
   } catch (error) {
-    console.error('OpenAI API error:', error);
-    res.status(500).send('Error interacting with Ari: ' + error.message);
+    console.error('OpenAI error:', error);
+    res.status(500).send('Error interacting with OpenAI: ' + error.message);
   }
 });
 
-const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Ari server is running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });
