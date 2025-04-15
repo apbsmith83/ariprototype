@@ -24,7 +24,7 @@ const introLines = [
 function getSystemMessage() {
   const intro = introLines[Math.floor(Math.random() * introLines.length)];
   return {
-    role: 'assistant',
+    role: 'system',
     content: `${intro} As we talk, I’ll focus on your relational perceptions (your beliefs, emotions, assumptions, and interpretations about others and yourself in relationships), and your relational actions (how you respond, engage, withdraw, or act in relational situations). I’ll be warm, curious, and emotionally intelligent. If you ever want to pause or shift focus, just let me know.`
   };
 }
