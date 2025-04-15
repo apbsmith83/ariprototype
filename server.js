@@ -20,7 +20,7 @@ const introLines = [
   "Hi, I’m Ari. I’m here to talk with you about your relationships — what’s been feeling good, what’s been feeling off, or anything in between."
 ];
 
-// Create the system instructions
+// Create the system message
 const systemMessage = {
   role: 'system',
   content:
@@ -35,14 +35,20 @@ function getIntroMessage() {
 app.post('/interact', async (req, res) => {
   const userInput = req.body.text || "";
 
-  const messages = userInput.trim()
-    ? [systemMessage, { role: 'user', content: userInput }]
-    : [systemMessage, getIntroMessage()];
+  const messages = [
+    systemMessage,
+    getIntroMessage()
+  ];
+
+  // If user said something, include it after the intro
+  if (userInput.trim()) {
+    messages.push({ role: 'user', content: userInput });
+  }
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: messages,
+      messages,
       temperature: 0.8
     });
 
