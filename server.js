@@ -20,31 +20,32 @@ const introLines = [
   "Hi, I’m Ari. I’m here to talk with you about your relationships — what’s been feeling good, what’s been feeling off, or anything in between."
 ];
 
-// Create the system message with one of the curated introductions
-function getSystemMessage() {
+// Generate Ari’s introduction as a conversational assistant-style message
+function getAriIntroMessage() {
   const intro = introLines[Math.floor(Math.random() * introLines.length)];
   return {
-    role: 'system',
+    role: 'assistant',
     content: `${intro}\n\nAs we talk, I’ll focus on your relational perceptions (your beliefs, emotions, assumptions, and interpretations about others and yourself in relationships), and your relational actions (how you respond, engage, withdraw, or act in relational situations). I’ll be warm, curious, and emotionally intelligent. If you ever want to pause or shift focus, just let me know.`
   };
 }
 
 app.post('/interact', async (req, res) => {
-  const userInput = req.body.text;
+  const userInput = req.body.text?.trim();
   const messages = [];
 
-  // If user input is empty or just whitespace, start the conversation
-  if (!userInput || userInput.trim() === '') {
-    messages.push(getSystemMessage());
+  // If this is the beginning of the conversation
+  if (!userInput) {
+    messages.push(getAriIntroMessage());
   } else {
-    messages.push(getSystemMessage());
+    // Add Ari’s intro + user message to preserve relational context
+    messages.push(getAriIntroMessage());
     messages.push({ role: 'user', content: userInput });
   }
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: messages,
+      messages,
       temperature: 0.8
     });
 
