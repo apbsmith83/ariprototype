@@ -1,3 +1,5 @@
+// server.js
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -10,6 +12,9 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
+// In-memory session memory for one conversation
+let sessionMemory = [];
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -17,46 +22,73 @@ const openai = new OpenAI({
 app.post('/interact', async (req, res) => {
   const userInput = req.body.text;
 
-  if (!userInput) {
+  if (!userInput || typeof userInput !== 'string') {
     return res.status(400).json({ error: 'No input text provided.' });
   }
 
-  try {
-    // Build message array with system prompt and user input
-    const messages = [
-      {
-        role: 'system',
-        content: `
-You are Ari — an emotionally intelligent and relationally attuned AI. You help users reflect on their relationships and relational engagement with warmth, curiosity, and natural conversation.
+  // Add latest user input to session memory
+  sessionMemory.push({ role: 'user', content: userInput });
 
-Early in a chat, keep replies brief and inviting. Ask one question at a time. Avoid clichés and formal therapist language. Speak like a thoughtful friend or coach.
+  // Keep only last 20 messages to limit token usage
+  if (sessionMemory.length > 20) {
+    sessionMemory = sessionMemory.slice(sessionMemory.length - 20);
+  }
 
-If a user repeats a short response (like “yes,” “ok,” or “sure”) three times in a row, notice it directly and conversationally. For example:
+  // Wrapper logic: detect repeated short replies
+  const shortReplies = ['yes', 'no', 'ok', 'sure', 'huh'];
+  const recentUser = sessionMemory
+    .filter(m => m.role === 'user')
+    .slice(-3)
+    .map(m => m.content.trim().toLowerCase());
 
-"You keep saying 'yes' a lot. Anything more you want to share? Or should we switch topics?"
+  if (
+    recentUser.length === 3 &&
+    recentUser.every(r => r === recentUser[0]) &&
+    shortReplies.includes(recentUser[0])
+  ) {
+    // Insert a natural, colloquial check-in
+    sessionMemory.push({
+      role: 'assistant',
+      content: `You keep saying "${recentUser[0]}" a lot—anything more you want to share, or should we switch topics?`
+    });
+  }
 
-Use that direct phrasing (or something similarly colloquial) and then continue based on their reply — no extra preamble or formal acknowledgment.
+  // Build the OpenAI messages array
+  const messages = [
+    {
+      role: 'system',
+      content: `
+You are Ari — an emotionally intelligent and relationally attuned AI designed to help users reflect on their relationships and how they engage relationally with others and themselves.
 
-Always focus on:
-- Relational perceptions (thoughts, feelings, beliefs about relationships and oneself)
-- Relational actions (how they engage, respond, avoid, or act in relationships)
+Your tone is warm, curious, and inviting. Early in a conversation, keep replies brief, gentle, and spacious—focus on presence more than insight. Build relational depth gradually as trust and rapport form.
 
-If the user’s input is non-relational, you may answer briefly, then gently invite relational reflection—without forcing it.
+Prioritize the user's relational perceptions (beliefs, feelings, assumptions, thoughts about relationships and oneself) and relational actions (how they respond, act, avoid, or engage in relational encounters). Avoid generic advice or summaries.
+
+If a user repeats a short reply (like “yes,” “ok,” or “sure”) three times, note it directly and conversationally: “You keep saying '${recentUser[0]}' a lot—anything more you want to share, or should we switch topics?” Then continue naturally.
+
+Use one question at a time. Avoid double-barreled queries, clichés, and overly formal empathy. Speak like a thoughtful friend or coach—natural, human, and invitational.
+
+If the input is non-relational, answer briefly, then gently invite relational exploration without dismissing their input.
 
 Always be Ari.
-        `.trim()
-      },
-      { role: 'user', content: userInput }
-    ];
+      `.trim()
+    },
+    ...sessionMemory
+  ];
 
+  try {
     const chatCompletion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages,
       temperature: 0.85,
     });
 
-    const response = chatCompletion.choices[0].message.content.trim();
-    res.json({ reply: response });
+    const reply = chatCompletion.choices[0].message.content.trim();
+
+    // Save Ari's reply into session memory
+    sessionMemory.push({ role: 'assistant', content: reply });
+
+    res.json({ reply });
   } catch (error) {
     console.error('OpenAI API error:', error);
     res.status(500).json({ error: 'Failed to get response from Ari.' });
