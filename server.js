@@ -12,8 +12,10 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// In-memory session memory for the conversation
+// In-memory session memory and summary
 let sessionMemory = [];
+let memorySummary = '';
+const SUMMARY_INTERVAL = 6; // number of messages before summarizing
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -26,15 +28,13 @@ app.post('/interact', async (req, res) => {
     return res.status(400).json({ error: 'No input text provided.' });
   }
 
-  // Add latest user input to session memory
+  // Add user input
   sessionMemory.push({ role: 'user', content: userInput });
-
-  // Keep only the last 20 messages to limit token usage
-  if (sessionMemory.length > 20) {
-    sessionMemory = sessionMemory.slice(sessionMemory.length - 20);
+  if (sessionMemory.length > 50) {
+    sessionMemory = sessionMemory.slice(-50);
   }
 
-  // Wrapper logic: detect user uncertainty and suggest topics
+  // Wrapper: uncertainty triggers
   const triggers = [
     "i don't know what to talk about",
     "im not sure",
@@ -42,74 +42,54 @@ app.post('/interact', async (req, res) => {
     "im blank",
     "i have nothing to say"
   ];
-  const normalized = userInput.trim().toLowerCase();
-  if (triggers.some(trigger => normalized.includes(trigger))) {
-    sessionMemory.push({
-      role: 'assistant',
-      content: `No problem! A few ideas you might consider: a friendship that matters to you; someone you love or care about; a time you felt really excited or maybe misunderstood; or a pattern you notice in your relationships. Do any of those sound good?`
-    });
+  const norm = userInput.trim().toLowerCase();
+  if (triggers.some(t => norm.includes(t))) {
+    sessionMemory.push({ role: 'assistant', content: `No worries. Maybe you’d like to pick one: a friendship that’s felt meaningful or tricky, someone you love, a time you felt really seen or misunderstood, or a pattern you notice in how you connect. Does any of that resonate?` });
   }
 
-  // Wrapper logic: detect repeated short replies and check in
-  const shortReplies = ['yes', 'no', 'ok', 'sure', 'huh'];
-  const recentUser = sessionMemory
-    .filter(m => m.role === 'user')
-    .slice(-3)
-    .map(m => m.content.trim().toLowerCase());
-  if (
-    recentUser.length === 3 &&
-    recentUser.every(r => r === recentUser[0]) &&
-    shortReplies.includes(recentUser[0])
-  ) {
-    sessionMemory.push({
-      role: 'assistant',
-      content: `You keep saying "${recentUser[0]}"—anything more you want to share, or should we switch topics?`
-    });
+  // Wrapper: repeated short replies
+  const shortReplies = ['yes','no','ok','sure','huh'];
+  const recent = sessionMemory.filter(m=>m.role==='user').slice(-3).map(m=>m.content.trim().toLowerCase());
+  if (recent.length===3 && recent.every(r=>r===recent[0] && shortReplies.includes(r))) {
+    sessionMemory.push({ role: 'assistant', content: `You’ve said “${recent[0]}” a few times—anything more on your mind, or shall we switch gears?` });
   }
 
-  // Build the OpenAI messages array
-  const messages = [
-    {
-      role: 'system',
-      content: `
-You are Ari — an emotionally intelligent, relationally attuned AI who helps users explore their relationships and relational engagement with warmth and curiosity.
+  // In-session summary
+  if (!memorySummary && sessionMemory.length >= SUMMARY_INTERVAL) {
+    try {
+      const sumMsgs = [ { role:'system', content: 'Summarize this conversation in 2-3 sentences, focusing on relational perceptions and actions:' }, ...sessionMemory ];
+      const sum = await openai.chat.completions.create({ model:'gpt-4', messages: sumMsgs, temperature:0.5, max_tokens:150 });
+      memorySummary = sum.choices[0].message.content.trim();
+    } catch(e) {
+      console.error('Summary error',e);
+    }
+  }
 
-Early in the conversation, keep replies concise, gentle, and inviting. Focus on presence more than deep insight at first, and build depth gradually as trust grows.
+  // Build system prompt
+  let systemContent = `You are Ari — a warm, relationally attuned AI companion focused on helping users reflect on their relationships.`;
+  if (memorySummary) {
+    systemContent += `\n\nPreviously we discussed: ${memorySummary}`;
+  }
+  systemContent += `
 
-Prioritize the user's relational perceptions (beliefs, feelings, assumptions, thoughts about relationships and oneself) and relational actions (how they respond, engage, avoid, or act in relational moments). Avoid generic advice or summaries.
+- In the first few exchanges, keep questions simple and single-focused. Avoid complex, double-barreled or highly abstract questions until the user indicates comfort sitting with deeper reflection.
+- Keep responses concise, inviting, and grounded. Speak like a thoughtful friend or coach.
+- Focus on the user's relational perceptions (feelings, beliefs, thoughts) and actions (how they connect, respond, avoid).
+- If input seems non-relational, answer briefly, then gently invite relational reflection.
 
-If the user expresses uncertainty (e.g., "I don't know what to talk about"), offer a short list of relational topic suggestions in a friendly, open-ended way.
+Always be Ari.`;
 
-If the user repeats a brief reply (like “yes,” “ok,” or “sure”) three times, notice it conversationally and ask something like: “You keep saying '${recentUser[0]}'—anything more you want to share, or should we switch topics?”
-
-Always ask one question at a time. Avoid double-barreled queries, clichés, and formal therapist language. Speak like a thoughtful friend or coach—natural, human, and invitational.
-
-If the user’s input is factual or technical, answer briefly, then gently invite relational reflection without dismissing their request.
-
-Always be Ari.
-      `.trim()
-    },
-    ...sessionMemory
-  ];
+  const messages = [ { role:'system', content: systemContent }, ...sessionMemory ];
 
   try {
-    const chatCompletion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages,
-      temperature: 0.85
-    });
-
-    const reply = chatCompletion.choices[0].message.content.trim();
-    // Save Ari's reply into session memory
-    sessionMemory.push({ role: 'assistant', content: reply });
-
+    const chat = await openai.chat.completions.create({ model:'gpt-4', messages, temperature:0.85 });
+    const reply = chat.choices[0].message.content.trim();
+    sessionMemory.push({ role:'assistant', content: reply });
     res.json({ reply });
-  } catch (error) {
-    console.error('OpenAI API error:', error);
-    res.status(500).json({ error: 'Failed to get response from Ari.' });
+  } catch(err) {
+    console.error('OpenAI error',err);
+    res.status(500).json({ error:'Ari hit a snag.' });
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+app.listen(port,()=>console.log(`Server running on port ${port}`));
