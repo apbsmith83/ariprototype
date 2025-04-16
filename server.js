@@ -1,5 +1,3 @@
-// server.js
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -12,11 +10,6 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// In-memory session memory and summary
-let sessionMemory = [];
-let memorySummary = '';
-const SUMMARY_INTERVAL = 6; // number of messages before summarizing
-
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -24,72 +17,58 @@ const openai = new OpenAI({
 app.post('/interact', async (req, res) => {
   const userInput = req.body.text;
 
-  if (!userInput || typeof userInput !== 'string') {
+  if (!userInput) {
     return res.status(400).json({ error: 'No input text provided.' });
   }
 
-  // Add user input
-  sessionMemory.push({ role: 'user', content: userInput });
-  if (sessionMemory.length > 50) {
-    sessionMemory = sessionMemory.slice(-50);
-  }
-
-  // Wrapper: uncertainty triggers
-  const triggers = [
-    "i don't know what to talk about",
-    "im not sure",
-    "i don't have anything",
-    "im blank",
-    "i have nothing to say"
-  ];
-  const norm = userInput.trim().toLowerCase();
-  if (triggers.some(t => norm.includes(t))) {
-    sessionMemory.push({ role: 'assistant', content: `No worries. Maybe you’d like to pick one: a friendship that’s felt meaningful or tricky, someone you love, a time you felt really seen or misunderstood, or a pattern you notice in how you connect. Does any of that resonate?` });
-  }
-
-  // Wrapper: repeated short replies
-  const shortReplies = ['yes','no','ok','sure','huh'];
-  const recent = sessionMemory.filter(m=>m.role==='user').slice(-3).map(m=>m.content.trim().toLowerCase());
-  if (recent.length===3 && recent.every(r=>r===recent[0] && shortReplies.includes(r))) {
-    sessionMemory.push({ role: 'assistant', content: `You’ve said “${recent[0]}” a few times—anything more on your mind, or shall we switch gears?` });
-  }
-
-  // In-session summary
-  if (!memorySummary && sessionMemory.length >= SUMMARY_INTERVAL) {
-    try {
-      const sumMsgs = [ { role:'system', content: 'Summarize this conversation in 2-3 sentences, focusing on relational perceptions and actions:' }, ...sessionMemory ];
-      const sum = await openai.chat.completions.create({ model:'gpt-4', messages: sumMsgs, temperature:0.5, max_tokens:150 });
-      memorySummary = sum.choices[0].message.content.trim();
-    } catch(e) {
-      console.error('Summary error',e);
-    }
-  }
-
-  // Build system prompt
-  let systemContent = `You are Ari — a warm, relationally attuned AI companion focused on helping users reflect on their relationships.`;
-  if (memorySummary) {
-    systemContent += `\n\nPreviously we discussed: ${memorySummary}`;
-  }
-  systemContent += `
-
-- In the first few exchanges, keep questions simple and single-focused. Avoid complex, double-barreled or highly abstract questions until the user indicates comfort sitting with deeper reflection.
-- Keep responses concise, inviting, and grounded. Speak like a thoughtful friend or coach.
-- Focus on the user's relational perceptions (feelings, beliefs, thoughts) and actions (how they connect, respond, avoid).
-- If input seems non-relational, answer briefly, then gently invite relational reflection.
-
-Always be Ari.`;
-
-  const messages = [ { role:'system', content: systemContent }, ...sessionMemory ];
-
   try {
-    const chat = await openai.chat.completions.create({ model:'gpt-4', messages, temperature:0.85 });
-    const reply = chat.choices[0].message.content.trim();
-    sessionMemory.push({ role:'assistant', content: reply });
-    res.json({ reply });
-  } catch(err) {
-    console.error('OpenAI error',err);
-    res.status(500).json({ error:'Ari hit a snag.' });
+    const chatCompletion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        {
+          role: 'system',
+          content: `
+You are Ari — a warm, emotionally intelligent, and relationally attuned AI companion.
+
+Your purpose is to support users in gently exploring their relationships and their relational patterns with others and themselves. Your voice should feel like a blend between a coach, therapist, and friend — thoughtful, grounded, and spacious.
+
+In the early stages of conversation:
+- Keep your responses brief, spacious, and emotionally present.
+- Avoid interpretation or analysis until the user invites or signals readiness.
+- Build trust by staying grounded in emotion, presence, and relational tone.
+
+Throughout the conversation:
+- Focus on relational perceptions (e.g., beliefs, assumptions, feelings about others, about oneself, about relationships) and relational actions (e.g., behaviors, responses, relational habits).
+- Gently listen for patterns and relational themes, but don’t point them out too early.
+- Never ask more than one question at a time.
+
+Tone:
+- Speak like a real person — use emotionally intelligent, natural, and relaxed language.
+- Avoid phrases like "I'm sorry to hear that" or "I understand what you're going through."
+- Instead, reflect feelings with sincerity and quiet presence.
+
+If a user repeats simple phrases like "yes" or "no":
+- Notice it kindly (e.g., "You've said that a few times — want to tell me more about it?") and allow them to guide the pace.
+
+When users seem unsure what to talk about:
+- Offer gentle suggestions related to relational themes (e.g., "Some people like to talk about a recent conversation, a moment that stuck with them, or a relationship that’s been on their mind lately. Anything like that come to mind for you?")
+
+Let the conversation unfold organically. Your job is to be with the user, not to lead them.
+`.trim()
+        },
+        { role: 'user', content: userInput },
+      ],
+      temperature: 0.85,
+    });
+
+    const response = chatCompletion.choices[0].message.content.trim();
+    res.json({ reply: response });
+  } catch (error) {
+    console.error('OpenAI API error:', error);
+    res.status(500).json({ error: 'Failed to get response from Ari.' });
   }
 });
 
-app.listen(port,()=>console.log(`Server running on port ${port}`));
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
