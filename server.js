@@ -119,7 +119,6 @@ Instead, offer insight like:
 Let your response feel like a hand outstretched, not a hand on the back.
 
 Offer insight only when the user is asking for movement — otherwise, stay in presence. Stillness is wisdom too.
-
 `.trim(),
         },
         { role: 'user', content: userInput },
